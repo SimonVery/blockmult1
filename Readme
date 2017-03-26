@@ -5,8 +5,12 @@
 <head>
 </head>
 <body>
+<div>
 <p>Game-based-learning application for learning multiplication facts</p>
 <p>Gameplay based on Tetris</p>
 <p>Left, right, down arrow control keys</p> 
 <p>Sliders moved by mouse</p>>
 <p>Multiply the running total to equal the current target</p>
+</div>
+</body>
+</html>

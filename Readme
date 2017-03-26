@@ -1,4 +1,12 @@
-Game-based-learning application for learning multiplication facts, gameplay based on Tetris.
-Left, right, down arrow control keys 
-Sliders moved by mouse
-Multiply the running total to equal the current target
+<html>
+<head>   
+<meta charset="UTF-8" />
+<title>Readme</title>
+<head>
+</head>
+<body>
+<p>Game-based-learning application for learning multiplication facts</p>
+<p>Gameplay based on Tetris</p>
+<p>Left, right, down arrow control keys</p> 
+<p>Sliders moved by mouse</p>>
+<p>Multiply the running total to equal the current target</p>

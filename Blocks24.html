@@ -1,0 +1,1551 @@
+<html>
+<head>   
+<meta charset="UTF-8" />
+<title>Multblocks</title>
+<style>
+#canvas{
+	position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 0;
+	border: solid 0px #000;	
+}
+
+input[id="speedslide"] {
+   transform: rotate(90deg);
+}
+
+</style>
+</head>
+<body style="overflow: hidden">
+<div id="canvases">
+<canvas id="backcanvas" width="1000" height="600" style="position:absolute;top:0%;left:5px; z-index=0">
+</canvas>
+<canvas id="canvas" width="1000" height="600" style="position:absolute;top:0%;left:5px; z-index=1">
+</canvas>
+<canvas id="forecanvas" width="1250" height="600" style="position:absolute;top:0%;left:5px; z-index=2">
+</canvas>
+<canvas id="forecanvas2" width="1000" height="600" style="position:absolute;top:0%;left:5px; z-index=3">
+</canvas>
+<canvas id="foremostcanvas" width="1000" height="600" style="position:absolute;top:0%;left:5px; z-index=4">
+</canvas>
+<canvas id="foremostcanvasNew" width="1000" height="600" style="position:absolute;top:0%;left:5px; z-index=5">
+</canvas>
+<canvas id="sidecanvas" width="150" height="200" style="position:absolute;top:400px;left:1005px; z-index=0">
+</canvas>
+<canvas id="sidecanvas2" width="150" height="200" style="position:absolute;top:400px;left:1005px; z-index=1">
+</canvas>
+</div>
+<div>
+<input id="speedslide" type="range" style="position:absolute;top:300px;left:1010px; z-index=1" id="speed" value="50" onclick="setspeed()" onmouseup="setspeed()">
+</div style="width:300px">
+<input id="answerslide" type="range" style="position:absolute;top:100px;left:1010px; z-index=1;width:300px" id="answer" value="00" onclick="setanswer()" onmouseup="setanswer()">
+<button type="button" id="leftnudge" style="position:absolute;top:130px;left:1010px;z-index=1;width:30px" onmouseup="nudgel()"></button>
+<button type="button" id="rightnudge" style="position:absolute;top:130px;left:1285px;z-index=1;width:30px" onmouseup="nudger()"></button>
+<button type="button" id="solve" style="position:absolute;top:70px;left:1285px;z-index=1;width:50px;height:30px;fontWeight:600" onmouseup="checkanswer()"></button>
+</div>
+<div>
+</div>
+
+<p id="messages1" style="float: right"></p>
+<p id="messages2" style="float: right"></p>
+<script>
+//Globals
+var canvas = document.getElementById("canvas");
+var	ctx = canvas.getContext("2d");
+var forecanvas = document.getElementById("forecanvas");
+var ctxfore = forecanvas.getContext("2d");
+var forecanvas2 = document.getElementById("forecanvas2");
+var ctxfore2 = forecanvas2.getContext("2d");
+var backcanvas = document.getElementById("backcanvas");
+var ctxback = backcanvas.getContext("2d");
+var foremostcanvas = document.getElementById("foremostcanvas");
+var ctxfm = foremostcanvas.getContext("2d");
+var foremostcanvasNew = document.getElementById("foremostcanvasNew");
+var ctxfms = foremostcanvasNew.getContext("2d");
+var sidecanvas = document.getElementById("sidecanvas");
+var ctxside = sidecanvas.getContext("2d");
+var sidecanvas2 = document.getElementById("sidecanvas2");
+var ctxside2 = sidecanvas2.getContext("2d");
+ctxfm.globalAlpha=0.5;
+ctxfms.globalAlpha=0.5;
+ctxside2.globalAlpha=0.5;
+var WIDTH = canvas.width;
+var HEIGHT = canvas.height;
+var started = false;
+var blockwidth = WIDTH/100;
+var layers = new Array ();
+var layerhit = false;
+var calculating = false;
+var partsholder = new Array();
+var bigpartsholder = new Array();
+var bigrepartsholder = new Array();
+bigrepartsholder[0]=0;
+var partsmade = false;
+var timecount = 0;
+var pace = 25;
+var layery = blockwidth*24;
+var paused = false;
+var globali = 0;
+var bad = 0;
+var flashes = 0;
+var hover = false;
+var max = 0;
+var lastmax = 0;
+var reordered = false;
+var fresh = true;
+var launched = false;
+var busted = false;
+var ended = false;
+var newprod = 0;
+var looping = false;
+var gotarg = false;
+var multval = 2;
+var glotot = 1;
+var target = multval*glotot;
+var speed = 0.5;
+var maxdiff = 80;
+var lastinum1;
+var lastinum2;
+var goodtogo = false;
+var reps = 1;
+var persistentin = 1;
+var persistentmult = 2;
+var diffdex = 1/45;
+var run = 5;
+var quizzing = false;
+var quizq = false;
+var LHS1;
+var tmp;
+var LHS2;
+var answer = 0;
+var quizcount;
+var correct = 0;
+var nextqnow = false;
+var notgrey = false;
+var arrowsee = true;
+var arrflash = 0;
+var lastx;
+var flashtot = "#FFFFFF";
+var attop = false;
+//var swatch =  new Array ("#FFFFFF","#06990C","#DCDC00","#288AA3","#FF57EA","#F50000","#6BEE66","#AA00FF","#0CE6E8","#E8721D");
+//var swatch =  new Array ("#FFFFFF","#06EE0C","#DCDC00","#288AA3","#FF57EA","#F50000","#6BCC66","#AA00FF","#0CE6E8","#E8721D");
+var swatch =  new Array ("#FFFFFF","#06EE0C","#DCDC00","#288AA3","#FF57EA","#FA0000","#6BCC66","#AA00FF","#0CE6E8","#E8721D");
+//END globals
+
+//Draw attention to totalblock
+function totflash(){
+	attop = true;
+	flashtot = "#FFFF00";
+	setTimeout(totback,2000);
+}
+
+function totback() {
+	flashtot = "#FFFFFF";
+	attop = false;
+}
+//END draw attention to totalblock
+
+//Arrow keys graphic 
+ function showarrows (){
+	if (arrowsee == true){
+		arrflash++;
+		ctxside.globalAlpha = 0;
+		if (arrflash == 40){
+			arrflash = 0;
+			ctxfore.clearRect(0,0,1250,600);
+			if (ctxfore.globalAlpha == 0 || ctxfore.globalAlpha == 1){
+				if (ctxfore.globalAlpha == 0){
+					ctxfore.globalAlpha = 1;
+					ctxside.globalAlpha = 1;
+				}
+				else{
+					ctxside.clearRect(0,0,1000,1000);
+					ctxfore.globalAlpha = 0;
+				}
+			}
+		}
+		var path1 = new Path2D();
+		path1.moveTo(465,100);
+		path1.lineTo(495,85);
+		path1.lineTo(495,115);
+		ctxfore.fill(path1);
+		ctxfore.rect(460,80,40,40);
+		ctxfore.stroke();
+
+		var path2 = new Path2D();
+		path2.moveTo(585,100);
+		path2.lineTo(555,85);
+		path2.lineTo(555,115);
+		ctxfore.fill(path2);
+		ctxfore.rect(550,80,40,40);
+		ctxfore.stroke();
+	
+		var path3 = new Path2D();
+		path3.moveTo(510,130);
+		path3.lineTo(540,130);
+		path3.lineTo(525,160);
+		ctxfore.fill(path3);
+		ctxfore.rect(505,125,40,40);
+		ctxfore.stroke();
+	}
+}
+// END arrow key graphics
+
+//Quiz functions
+function doquiz (){
+	if (quizq == false){
+		nextqnow = false;
+		tarb.target = 0;
+		document.getElementById('answerslide').style.visibility = "visible";
+		document.getElementById('leftnudge').style.visibility = "visible";
+		document.getElementById('rightnudge').style.visibility = "visible";
+		document.getElementById('solve').style.visibility = "visible";
+		document.getElementById('solve').innerText = "?";
+		document.getElementById('speedslide').style.visibility = "hidden";
+		quizq = true;
+		LHS1 = parseInt((Math.random())*10)+1;
+		tmp = parseInt(200/LHS1);
+		LHS2 = parseInt(tmp/(parseInt((Math.random())*10)+1));
+	}
+	ctxfore.clearRect(0, 0, 1250, 600);
+	ctxfore.beginPath();
+	ctxfore.font = "50px Arial";
+	ctxfore.textAlign = "left";
+	ctxfore.fillStyle = "#000000";
+	ctxfore.fillText(LHS1+ " X "+LHS2 + " = ",1010,100,150,100);
+	
+	var answl = answer.toString().length;
+	ctxfore.beginPath();
+	ctxfore.font = "50px Arial";
+	ctxfore.textAlign = "left";
+	if (answer != 0){
+		if (correct == 0){
+			ctxfore.fillStyle = "#000000";
+		}
+		if (correct == 1){
+			ctxfore.fillStyle = "#00FF00";
+		}
+		if (correct == 2){
+			ctxfore.fillStyle = "#FF0000";
+		}
+		ctxfore.fillText(answer,1160,100,25*answl,100);
+	}
+	tarb.target = answer;
+	if (correct != 0){
+		if (notgrey == false){
+			tarb.greyout(LHS1*LHS2);
+		}
+	}
+	else{
+		tarb.greyout(0);
+	}
+}
+
+function nogrey(){
+	notgrey = true;
+	window.clearTimeout(nogrey);
+	tarb.greyout(0);
+}
+
+function checkanswer(){
+	quizcount--;
+	setTimeout(nogrey,2000);
+	notgrey = false;
+	if (nextqnow == true){
+		document.getElementById('solve').style.color = "#000000";
+		document.getElementById('solve').style.fontWeight = "600";
+		document.getElementById('solve').innerText = "?";
+		correct = 0;
+		LHS = 0;
+		temp = 0;
+		RHS = 0;
+		answer = 0;
+		quizq = false;
+	}
+	else{
+		if (answer == LHS1*LHS2){
+			correct = 1;
+			document.getElementById('solve').style.color = "#0000ff";
+			document.getElementById('solve').style.fontWeight = "900";
+			document.getElementById('solve').innerText = "OK";
+			document.getElementById('answerslide').style.visibility = "hidden";
+			document.getElementById('leftnudge').style.visibility = "hidden";
+			document.getElementById('rightnudge').style.visibility = "hidden";
+			document.getElementById('answerslide').value = 0;
+			nextqnow = true;
+		}
+		else{
+			correct = 2;
+		}
+	}
+	if (quizcount < 1){
+		//restart play
+		document.getElementById('solve').style.color = "#000000";
+		document.getElementById('solve').style.fontWeight = "600";
+		document.getElementById('solve').value = "OK";
+		correct = 0;
+		LHS = 0;
+		temp = 0;
+		RHS = 0;
+		answer = 0;
+		quizq = false;
+		tarb.target = 2;
+		persistentin = 1;
+		persistentmult = 2;
+		glotot = 1;
+		run = 5;
+		lastinum1 = 2;
+		gotarg = false;
+		attop = false;
+		quizzing = false;
+		ctxfore.clearRect(0, 0, 1250, 600);
+		doreset();
+	}
+}
+//End quiz functions
+
+
+//Slider controls
+function setspeed(){
+	speed = (document.getElementById('speedslide').value)/100;
+}
+
+function setanswer(){
+	answer = 2*parseInt(document.getElementById('answerslide').value);
+	correct = 0;
+}
+
+function nudgel (){
+	if (answer > 0){
+		correct = 0;
+		answer--;
+		document.getElementById('answerslide').value = answer/2;
+	}
+}
+
+function nudger (){
+	if (answer < 200){
+		correct = 0;
+		answer++;
+		document.getElementById('answerslide').value = answer/2;
+	}
+}
+//End slider controls
+
+
+//main loop functions
+function setarget (){
+	var mi = 0;
+	while (mi < contdiffscores[0].length){
+		if (contdiffscores[0][mi] == persistentmult){
+			var multiplierdiff = contdiffscores[1][mi];
+			mi = contdiffscores[1].length 
+		}
+		mi++;
+	}
+	var multipliediff = chunk(persistentin.toString())*persistentin;
+	var diffnow = (multiplierdiff*2.5)*(multipliediff/2);
+	var bestreps = contdiffscores[2][lastinum1-1];
+	var repscore = reps/bestreps;	
+	var boost = parseInt(run + Math.random()*(20))/10;
+//set new difficulty	
+	maxdiff = (diffnow*boost)/repscore;
+	var tol = maxdiff/7.5;
+	var diffrat =  maxdiff/diffnow;
+	var nexdex = Math.ceil(diffrat*diffdex*45);
+	diffdex = nexdex/45;	
+	if (nexdex > 44){
+		quizcount = parseInt(2*(Math.random())*2)+6;
+		quizzing = true;
+	}
+	if (quizzing == false){
+		if (nexdex < 0){
+			nexdex = 0;
+		}
+		multiplierdiff = contdiffscores[1][nexdex];
+		diffnow = (multiplierdiff*2.5)*(multipliediff/2);
+		var ti = false;
+		var tlo = false;
+		var gap = 0;
+		if ((diffnow > (maxdiff+tol))){
+			tlo = true;
+			gap = diffnow-(maxdiff+tol);
+		}
+		if ((diffnow < (maxdiff-tol))){
+			ti = true;
+			gap = (maxdiff-tol)-diffnow;
+		}
+		if ((ti == false)&& (tlo == false)){
+			gap = tol;
+		}
+		else{
+			//find best matching input mult value
+			var im = 2;
+			var lowestdiffgap = 1000000;
+			var bestim = 2;
+			var tmpdiffnow;
+			var topim = Math.floor(200/(contdiffscores[0][nexdex]));
+			if (topim > 10){
+				topim = 10;
+			}
+			while (im < topim){
+				if (im == persistentin){
+					im++;
+				}
+				else{
+					multipliediff = chunk(im.toString())*im;
+					tmpdiffnow = (multiplierdiff*2.5)*(multipliediff/2);
+					if (Math.abs(maxdiff-tmpdiffnow) < lowestdiffgap){
+						lowestdiffgap = Math.abs(maxdiff-tmpdiffnow);
+						bestim = im;
+					}
+				im++;
+				}
+			}
+			persistentin = bestim;
+			glotot = bestim;
+		}
+		reps = 0;
+		persistentmult = contdiffscores[0][nexdex];
+		newprod = glotot;
+		target = glotot*persistentmult;
+		if (target > 200){
+			quizcount = parseInt(2*(Math.random())*2)+6;
+			quizzing = true;
+		}
+		gotarg = false;
+	}
+}
+
+function init () {
+	//document.getElementById('messages1').innerHTML = "PBh "+playblock.height;
+	//document.getElementById('messages2').innerHTML = " PM "+persistentmult;
+	if (started == true){
+		clear();
+		showarrows();
+		gridcontrol();
+		layercontrol();
+		if (launched == true && quizzing == false){
+			totalblockcontrol();
+		}
+		keycontrol();
+		targetcontrol();
+		if (quizzing == true){
+			doquiz();
+		}
+		else{
+			document.getElementById('speedslide').style.visibility = "visible";
+			document.getElementById('answerslide').style.visibility = "hidden";
+			document.getElementById('leftnudge').style.visibility = "hidden";
+			document.getElementById('rightnudge').style.visibility = "hidden";
+			document.getElementById('solve').style.visibility = "hidden";
+		}
+		if (calculating == true){
+			if (playblock.total<11){
+				partscontrol();
+			}
+			else{
+				bigpartscontrol();
+			}
+		}
+		else{
+			if (hover == false){
+				document.body.style.zoom="100%";
+			}
+		}
+	}
+}
+
+function dosuccess () {
+	run = run*1.15;//1.25
+	gotarg = false;
+	lastinum1 = lastx;
+	lastinum2 = playblock.total.toString();
+	setarget();
+	newprod = glotot;
+	setTimeout(totflash,100);
+	reset();
+	reps = 0;
+	tarb.target = target;
+	playblock.x = 0;
+	playblock.y = 0;
+	tarb.greyout(0);
+	pace = 25;
+	timecount = 0;
+	var lc = 0;
+	while (lc < 10){
+		var tmp = layers[lc].y
+		if (layers[lc].y < blockwidth*24){
+			layers[lc].y = tmp + blockwidth;
+		}
+		lc++;
+	}
+}
+
+function doreset () {
+	reps = 1;
+	run = 5;
+	diffdex = 1/45;
+	playblock.total = 1;
+	target = 2;
+	tarb.target = 2;
+	persistentin = 1;
+	persistentmult = 2;
+	playblock.y = 0;
+	playblock.x = 0;
+	pace = 25;
+	timecount = 0;
+	ended = false;
+	var lc = 0;
+	while (lc < 10){
+		layers[lc].y = blockwidth*24;
+		lc++;
+	}
+	tarb.greyout(0);
+}
+
+function clear() {
+	ctx.clearRect(0, 0, WIDTH, HEIGHT);
+}
+
+function layercontrol(){	
+	var i = 0;
+	var max = 10;
+	if (target < 10){
+		max = target;
+	}
+	while (i < max){
+		var layernow = layers[i];
+		var j = 0;
+		while (j < layernow.rows){
+			var blockcol = swatch[i];
+			ctx.beginPath();
+			ctx.fillStyle= blockcol;
+			ctx.rect((layernow.x),(layernow.y)+(blockwidth*(j+1)),blockwidth*10,blockwidth);
+			ctx.fill();
+			ctx.lineWidth = 1;
+			ctx.strokeStyle ="#000000";
+			ctx.stroke();			
+			j++;
+		}
+		i++;
+	}
+}
+
+function keycontrol(){	
+	document.onkeydown = function(event) {
+		event = event || window.event;
+		if (launched == false){
+			var oe = event.keyCode;
+			if (goodtogo == true && (oe == 37 || oe == 39 || oe == 40)){
+				launched = true;
+				ctxfore.clearRect(0,0,1250,600);
+				arrowsee = false;
+				ctxside.clearRect(0,0,1000,1000);
+				ctxside.globalAlpha = 1;
+			}
+		}
+		else{
+			ctxfore.globalAlpha = 1;
+			var e = event.keyCode;
+			if (ended == false){
+				if (calculating == false){
+					var offs = 0;
+					if (reordered == false){
+						offs = playblock.rows - 1;
+					}
+					else{
+						offs = playblock.bigrows - 1;
+					}
+					if (e == 37 && playblock.x>=(blockwidth*10) && layerhit == false && hover == false && attop == false){
+						var Lxnow = ((playblock.x)/(10*blockwidth))-1;
+						var Llayerynow = layers[Lxnow].y;
+						var Lunderynow = Llayerynow + ((1+Lxnow)*blockwidth);
+						if ((playblock.y < (Llayerynow-(offs*blockwidth))) || (playblock.y > (Lunderynow))){
+							playblock.x -= blockwidth*10;
+						}
+					}	
+					if (e == 39 && playblock.x<=(WIDTH-(blockwidth*20)) && layerhit == false & hover == false && attop == false){
+						var Rxnow = 1+((playblock.x)/(10*blockwidth));
+						var Rlayerynow = layers[Rxnow].y;
+						var Runderynow = Rlayerynow + ((1+Rxnow)*blockwidth);
+						if ((playblock.y < (Rlayerynow-(offs*blockwidth))) || (playblock.y > (Runderynow))){
+							playblock.x += blockwidth*10;
+						}
+					}
+				}
+				if (e == 40 && playblock.x<=(WIDTH-(blockwidth*10)) && layerhit == false && attop == false){
+					if (hover == true){
+						lastx = 1+((playblock.x)/(10*blockwidth));
+ 						ctxfore.clearRect(0, 0, WIDTH, HEIGHT);
+						hover = false;
+						calculating = false;
+						paused = false;
+						looping = true;
+					}
+					else{
+						var xnow = (playblock.x)/(10*blockwidth);
+						var layerynow = layers[xnow].y;
+						var underlayerynow = layerynow + ((1+xnow)*blockwidth);
+						if ((playblock.y < (layerynow-(offs*blockwidth))) && (playblock.y < underlayerynow)){
+							if (xnow < target){
+								playblock.y = layerynow-(offs*blockwidth);
+							}
+							else{
+								if (playblock.y < blockwidth*55){
+									playblock.y = blockwidth*55;
+								}
+							}
+						}
+						if (playblock.y > underlayerynow){
+							if (playblock.y < blockwidth*55){
+								playblock.y = blockwidth*55;
+							}
+						}
+					}
+				}
+			}
+		}
+	}	
+}
+
+function partscontrol(){
+	if (partsmade == true){	
+		var l = partsholder.length;
+		var i = globali;
+		var xnum = ((playblock.x)/(blockwidth*10))+1;
+		var ynum = xnum*blockwidth;
+		if (i<l && paused == false){
+			domult(i,xnum, ynum);
+			i++;
+		}
+	}
+}
+
+function bigpartscontrol(){
+	if (partsmade == true){
+		var i = 0;
+		var xnum = 0;
+		var ynum = 0;
+		if (bigrepartsholder[0]==0){//playblock NOT in form of groups of 10s and units 
+			i = globali;
+			xnum = ((playblock.x)/(blockwidth*10))+1;
+			ynum = xnum*blockwidth;
+			if (i<xnum && paused == false){
+				bigmult(i,xnum, ynum);
+				i++;
+			}
+		}
+		else{//playblock in form of groups of 10s and units 
+			i = globali;
+			xnum = ((playblock.x)/(blockwidth*10))+1;	
+			ynum = xnum*blockwidth;
+			if (i<xnum && paused == false){
+				bigremult(i,xnum, ynum);
+				i++;
+			}
+		}
+	}
+}
+
+function totalblockcontrol() {
+	var r = playblock.rowsnow();
+	var h = playblock.heightnow();
+	var y = playblock.y;
+	var x1 = playblock.x;
+	var x2 = ((x1/(10*blockwidth))+1);
+	var x2new = x2-1;
+	var t = playblock.total;	
+	if (x2 <= target){
+		layerhitcheck(h,y);
+	}
+	
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	
+	if (layerhit == false && hover == false){
+		timecount++;
+		if ((timecount*speed) > pace){
+			var gap = (layerynow/10) - playblock.rows;
+			if (attop == false){
+				if (playblock.y > layerynow){
+					looping = true;
+					playblock.y+= blockwidth;
+				}
+				else{
+					if (gap > 0){
+						playblock.y+= blockwidth;
+					}
+					else{
+						ended = true;
+						doreset();
+					}
+				}
+				if (playblock.y > blockwidth*60){
+					if (gotarg == true && busted == false && playblock.total < 201){
+						dosuccess();		
+					}
+					if (busted == false){
+						if (reps > 6){
+							doreset();
+						}
+						else{
+							pace = pace*(0.8);
+						}
+						playblock.y = 0;
+						var xchk = (playblock.x)/(10*blockwidth);
+						var ychk =  layers[xchk].y;
+						if (playblock.height < ychk){
+							reps++;
+							gotarg = false;
+							looping = false;
+						}
+						else{
+							ended = true;
+							playblock.total = 1;
+							playblock.bigrows = 0;
+							playblock.decrows = Math.floor(playblock.total/10);
+							playblock.unirows = playblock.rows - playblock.decrows;
+							playblock.unilen = playblock.total - (playblock.decrows*10);
+							doreset();
+						}
+					}
+					else {
+						reset();
+					}
+				}
+			}
+			timecount = 0;
+		}
+	}
+	else if (calculating == false && playblock.y <= layerynow){
+			looping = true;
+			var tp = t*x2;
+			var zoomag = parseInt(200 - (tp/5));
+			if (zoomag < 150){
+				zoomag = 150;
+			}
+			var zoomags = zoomag.toString();
+			var zoomagstr = zoomags+"%";
+			document.body.style.zoom = zoomagstr; 
+			var yz = parseFloat("1."+(x2/5));
+			var gap = (layerynow/10) - playblock.rows;
+			var yzmod = 24-gap;
+			window.scrollTo((x2new*10*blockwidth), (HEIGHT/2)*yz*(gap/24));
+			
+			//numerals
+			var multinput = playblock.total + " X " + (1+(playblock.x/(blockwidth*10)));
+			var mps = multinput.toString();
+			var inchars = mps.length; 
+			ctxfore.beginPath();
+			ctxfore.font = "30px Arial";
+			ctxfore.textAlign = "left";
+			ctxfore.fillStyle = "#000000";
+			ctxfore.fillText(multinput,(playblock.x),(playblock.y)-blockwidth/2,20*inchars,0);
+			//END numerals
+			
+			multin (t,x2);
+	}
+	
+	if (reordered == false){
+		var newrows = Math.floor(playblock.total/10);
+		var rem = playblock.total%10; 
+		var n = 0;
+		var p = 0;
+		while (p<playblock.total){
+				if (playblock.total<11){
+				ctx.beginPath();
+				ctx.fillStyle= swatch[(playblock.total)-1];
+				ctx.rect((playblock.x)+(blockwidth*(p)),(playblock.y),blockwidth,blockwidth);
+				ctx.fill();
+				ctx.lineWidth = 0.5;
+				ctx.strokeStyle ="#000000";
+				ctx.stroke();
+				p++;
+			}
+			else{
+				while (n<newrows){
+					var q = 0;
+					while (q < 10){
+						ctx.beginPath();
+						ctx.fillStyle= swatch[9];
+						ctx.rect((playblock.x)+(blockwidth*(q)),(playblock.y)+(n*blockwidth),blockwidth,blockwidth);
+						ctx.fill();
+						ctx.lineWidth = 0.25;
+						ctx.strokeStyle ="#000000";
+						ctx.stroke();
+						q++;
+						p++;
+					}
+					n++;
+				}
+				if (rem != 0){
+					ctx.beginPath();
+					ctx.fillStyle= swatch[rem-1];
+					ctx.rect((playblock.x)+(blockwidth*((p-(newrows*10)))),(playblock.y)+(n*blockwidth),blockwidth,blockwidth);
+					ctx.fill();
+					ctx.lineWidth = 0.5;
+					ctx.strokeStyle ="#000000";
+					ctx.stroke();
+				}
+				p++;
+			}
+		}
+	}
+	else{
+		var d = 0;
+		while (d<playblock.multnum){
+			var e = 0;
+			while (e<playblock.decrows){
+				var f = 0;
+				while (f<10){
+					ctx.beginPath();
+					ctx.fillStyle= swatch[9];
+					ctx.rect(playblock.x + blockwidth*f,(playblock.y)+(blockwidth*e)+(blockwidth*d*playblock.decrows),blockwidth,blockwidth);
+					ctx.fill();
+					ctx.lineWidth = 0.25;
+					ctx.strokeStyle ="#000000";
+					ctx.stroke();
+					f++;
+				}
+				e++;
+				var yoffs = (playblock.y)+(blockwidth*e)+(blockwidth*d*playblock.decrows);
+			}
+			if (playblock.decrows>1 && playblock.multnum !=1){
+				ctx.beginPath();
+				ctx.lineWidth = 1.5;
+				ctx.strokeStyle ="#000000";//"#FFEF8C";
+				ctx.strokeRect(playblock.x,(playblock.y)+(blockwidth*d*playblock.decrows),blockwidth*10,blockwidth*playblock.decrows);
+				ctx.stroke();
+			}
+			d++;
+		}
+		d = 0;
+		while (d<(playblock.multnum)*(playblock.unirows)){	
+			var g = 0;
+			while (g<playblock.unilen){
+				ctx.beginPath();
+				ctx.fillStyle= swatch[(playblock.unilen)-1];
+				ctx.rect(playblock.x +blockwidth*g,yoffs+(blockwidth*d),blockwidth,blockwidth);
+				ctx.fill();
+				ctx.lineWidth = 0.5;
+				ctx.strokeStyle ="#000000";
+				ctx.stroke();
+				g++;
+			}			
+			d++;
+		}
+		d = 0;
+		if (playblock.unirows>1 && playblock.multnum !=1){
+			while (d<playblock.multnum){
+				ctx.beginPath();
+				ctx.lineWidth = 1.5;
+				ctx.strokeStyle ="#000000";//"#FFEF8C";
+				ctx.strokeRect(playblock.x,yoffs+(blockwidth*d*playblock.unirows),blockwidth*playblock.unilen,blockwidth*playblock.unirows);
+				ctx.stroke();
+				d++;
+			}
+		}
+	}
+}
+
+
+function gridcontrol(){
+	ctxback.fillStyle = "#FFEF8C";
+	ctxback.fillRect(0, 0, WIDTH, HEIGHT);
+	var i = 0;
+	while (i<12){
+		if(i <8){
+			ctxback.lineWidth = 1.5;
+			ctxback.beginPath();
+			ctxback.moveTo(0,blockwidth*i*10);
+			ctxback.lineTo(WIDTH,blockwidth*i*10);
+			ctxback.strokeStyle="#FFFFFF";
+			ctxback.stroke();
+			ctxback.closePath();
+		}
+		ctxback.lineWidth = 1.5;
+		ctxback.beginPath();
+		ctxback.moveTo(blockwidth*i*10,0);
+		ctxback.lineTo(blockwidth*i*10,HEIGHT);
+		ctxback.strokeStyle="#FFFFFF";
+		ctxback.stroke();
+		ctxback.closePath();
+		i++;
+	}
+	var j = 0;
+	while (j<21){
+		if (j<15){
+			ctxback.lineWidth = 1;
+			ctxback.beginPath();
+			ctxback.moveTo(0,blockwidth*j*5);
+			ctxback.lineTo(WIDTH,blockwidth*j*5);
+			ctxback.strokeStyle="#AAAAAA";
+			ctxback.stroke();
+			ctxback.closePath();
+		}
+		ctxback.lineWidth = 1;
+		ctxback.beginPath();
+		ctxback.moveTo(blockwidth*j*5,0);
+		ctxback.lineTo(blockwidth*j*5,HEIGHT);
+		ctxback.strokeStyle="#AAAAAA";
+		ctxback.stroke();
+		ctxback.closePath();
+		j++;
+	}
+}
+
+function targetcontrol(){
+	ctxside.beginPath();
+	ctxside.fillStyle= flashtot;//"#FFFFFF";//"#FFFF00";
+	ctxside.rect(0,0,150,200);
+	ctxside.fill();
+	ctxside.lineWidth = 2;
+	ctxside.strokeStyle ="#000000";
+	ctxside.stroke();
+	ctxside.lineWidth = 1;
+	
+	var n = 0;
+	var t = 0;
+	var decs = Math.floor(tarb.target/10);
+	var d = 0;
+	while (d<decs){
+		ctxside.beginPath();
+		ctxside.fillStyle = swatch[9];
+		ctxside.rect(25,(n*blockwidth)+(d*blockwidth),blockwidth*10,blockwidth);
+		ctxside.fill();
+		ctxside.lineWidth = 1;
+		ctxside.strokeStyle ="#000000";
+		ctxside.stroke();
+		t+=10;
+		d++;
+	}
+	var rem = tarb.target - t;
+	if (rem >0){
+		ctxside.beginPath();
+		ctxside.fillStyle = swatch[rem-1];
+		ctxside.rect(25,(n*blockwidth)+(d*blockwidth),blockwidth*rem,blockwidth);
+		ctxside.fill();
+		ctxside.lineWidth = 1;
+		ctxside.strokeStyle ="#000000";
+		ctxside.stroke();
+	}
+	
+	ctxside.beginPath();
+	ctxside.moveTo(0,100);
+	ctxside.lineTo(150,100);
+	ctxside.strokeStyle="#000000";
+	ctxside.stroke();
+	ctxside.closePath();
+	
+	ctxside.beginPath();
+	ctxside.moveTo(0,50);
+	ctxside.lineTo(150,50);
+	ctxside.strokeStyle="#000000";
+	ctxside.stroke();
+	ctxside.closePath();
+	
+	ctxside.beginPath();
+	ctxside.moveTo(0,150);
+	ctxside.lineTo(150,150);
+	ctxside.strokeStyle="#000000";
+	ctxside.stroke();
+	ctxside.closePath();
+	
+	ctxside.lineWidth = 1;
+	ctxside.beginPath();
+	ctxside.moveTo(75,0);
+	ctxside.lineTo(75,200);
+	ctxside.strokeStyle="#000000";
+	ctxside.stroke();
+	ctxside.closePath();
+	
+}
+
+function layerhitcheck(h,y){
+	var bottom = parseInt(h+y-blockwidth);
+	
+	//Get current layer totalblock is overflow
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	//	
+	
+	if (bottom == layerynow){
+		layerhit = true;
+	}
+}
+
+//END main loop functions
+
+
+//Objects
+function layer (inow, xnow,ynow,rowsnow){
+	this.name = inow;
+	this.x = xnow;
+	this.y = ynow;
+	this.rows = rowsnow;
+}
+
+function totalblock (total,totx,toty,totrows,totheight) {
+	this.total = total;
+	this.x = totx;
+	this.y = toty;
+	this.rows = totrows;
+	this.height = totheight;
+	this.bigrows = 0;
+	this.decrows = 0;
+	this.unirows = 0;
+	this.unilen = 0;
+	this.multnum = 0;
+	this.lastmult = 0;
+	
+	this.rowsnow = function () {
+       this.rows = Math.ceil(this.total/10);
+	   return this.rows;
+    };
+	
+	this.heightnow = function () {
+		if (reordered == false){
+			this.height = this.rows*blockwidth;
+			return this.height;
+	   }
+	   else{
+			this.height = this.bigrows*blockwidth;
+			return this.height;
+	   }
+    };
+	
+	this.rescale = function (xnum) {
+	   var n = (this.total)*xnum;	   
+	   this.total = n;
+    };
+	
+	this.rowreorder = function (numin,xnum) {
+	//Place 10s rows together and <10s rows together
+		var decr = Math.floor(numin/10);
+		var uni = numin%10;
+		var unir = 0;
+		if (uni == 0){
+			unir = 0;
+		}
+		else{
+			unir = 1;
+		}
+		this.bigrows = (decr+unir)*xnum;
+		this.decrows = decr;
+		this.unirows = unir;
+		this.unilen = uni;
+		this.multnum = xnum;
+		reordered = true;
+		this.rows = this.bigrows;
+		this.rescale(xnum);
+		this.lastmult = xnum;
+    };
+	
+	this.newrowreorder = function (numin,xnum) {
+		this.bigrows = this.bigrows*xnum;
+		this.decrows = this.decrows*this.lastmult;
+		this.unirows = this.unirows*this.lastmult;
+		this.rows = this.bigrows;
+		this.multnum = xnum;
+		this.rescale(xnum);
+		this.lastmult = xnum;
+    };
+}
+
+function targetblock (target){
+	this.target = target;
+	this.greyout = function (r) {
+		ctxside2.clearRect(0,0,150,200);
+		var rem = r%10;
+		var d = Math.floor(r/10);
+		var c = 0;
+		while (c<d){
+			ctxside2.beginPath();
+			ctxside2.fillStyle= "#000000";//"#333333";
+			ctxside2.rect(25,c*blockwidth,blockwidth*10,blockwidth);
+			ctxside2.fill();
+			c++;
+		}
+		ctxside2.beginPath();
+		ctxside2.fillStyle= "#000000";//"#333333";
+		ctxside2.rect(25,c*blockwidth,blockwidth*rem,blockwidth);
+		ctxside2.fill();
+		if (r == this.target){
+			gotarg = true;
+		}
+    }
+}
+
+//End objects
+
+//Calculation functions
+function multin (t,x2){
+	calculating = true;
+	var prod = t*x2;
+	if (t < 11){
+		var i = 0;
+		var j = 0;
+		var overspills = 0;
+		var rowpart = 0;
+		var runningtotal = 0;
+		var totalnext = 0;
+		var startpart = false;
+		var startgap = 0;
+		var endgap = 0;
+		while (runningtotal<prod){	
+			var partlen = t;
+			var spill = 0;
+			//check if adding next part overloads a row
+			totalnext = runningtotal+t;
+			var rownow = Math.floor((runningtotal)/10);
+			var rownext = Math.floor(((runningtotal)+t)/10);
+			if (rownext>rownow){
+				if ((runningtotal+playblock.total)%10 != 0){
+					overspills = 1;
+				}
+				else{
+					overspills = 0;
+				}
+			}
+			else{
+				overspills = 0;
+			}	
+			if (overspills == 0){
+			//row not overloaded
+				if (startpart == false){
+					rowpart =((runningtotal) %10)+1;
+					partsholder[i] = new Array ();
+					partsholder[i][0] = rownow;
+					partsholder[i][1] = rowpart;
+					partsholder[i][2] = partlen;
+					i++;
+					runningtotal += t;
+				}
+				else{
+					partsholder[i] = new Array ();
+					partsholder[i][0] = rownow;
+					partsholder[i][1] = 1;
+					partsholder[i][2] = startgap;
+					i++;
+					runningtotal += startgap;	
+				}
+				startpart = false;
+			}
+			else if (overspills == 1){		
+				endgap = (((rownow)+1)*10) - (runningtotal);
+			//add from end of last non-overspilling part
+				partsholder[i] = new Array ();
+				partsholder[i][0] = rownow;
+				partsholder[i][1] = 11-endgap;
+				partsholder[i][2] = endgap;	
+				i++;
+				rownow++;
+				runningtotal += endgap;
+			//THEN modifiy rowpart and rowlen
+				startpart = true;
+				startgap = t-endgap;
+			}
+		}
+	}
+	else{
+	//WHEN number > 10 lands on multiplier layer
+	//Different actions depending on if reordered == TRUE or FALSE
+		if (reordered == false){
+			var decs = Math.floor(playblock.total/10);
+			var units = 0;
+			if (playblock.total%10 != 0){
+				units = playblock.total - (decs*10);
+			}
+			bigpartsholder[0]= decs;
+			if (units >0){
+				bigpartsholder[1] = decs+1;
+				bigpartsholder[2] = units;
+				bigpartsholder[3] = 1;
+			}
+			else{
+				bigpartsholder[1] = decs;
+				bigpartsholder[2] = 0;
+				bigpartsholder[3] = 0;
+			}
+		}
+		else{
+			bigrepartsholder[0] = playblock.lastmult;
+			bigrepartsholder[1] = playblock.decrows;
+			bigrepartsholder[2] = playblock.unirows;
+			bigrepartsholder[3] = playblock.unilen;
+		}
+	}
+	partsmade = true;
+	if (prod > tarb.target){
+		busted = true;
+		newprod = prod-tarb.target;
+	}
+}
+
+
+function bigremult(i,xnum,ynum){
+	paused = true;
+	ctxfore.beginPath();
+	ctxfore2.beginPath();
+	ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+	
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	
+	var j = 0;
+	if (hover == false){
+		var bigyoffs = blockwidth*i*playblock.bigrows; 
+		var newyoffs = 0;
+		ctxfore.fillStyle= swatch[9];
+		ctxfore.rect(playblock.x,blockwidth+layerynow+ynum + bigyoffs,blockwidth*10,blockwidth*bigrepartsholder[1]*bigrepartsholder[0]);
+		ctxfore.fill();
+		ctxfore.lineWidth = 1;
+		ctxfore.strokeStyle ="#000000";
+		ctxfore.stroke();	
+		newyoffs = blockwidth+layerynow+ynum+bigyoffs+(blockwidth*(bigrepartsholder[1]*bigrepartsholder[0]));		
+		ctxfore2.fillStyle= swatch[(bigrepartsholder[3])-1];
+		if (bigrepartsholder[2]!=0){
+			ctxfore2.rect(playblock.x,newyoffs,blockwidth*bigrepartsholder[3],blockwidth*bigrepartsholder[0]*bigrepartsholder[2]);
+			ctxfore2.fill();
+			ctxfore2.lineWidth = 1;
+			ctxfore2.strokeStyle ="#000000";
+			ctxfore2.stroke();
+		}
+	}
+	multbyflash(i);
+	setTimeout(bigunpause,2000);
+}
+
+
+function bigmult(i,xnum,ynum){
+	paused = true;
+	ctxfore.beginPath();
+	ctxfore2.beginPath();
+	ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	if (hover == false){
+		ctxfore.fillStyle= swatch[9];
+		ctxfore.rect(playblock.x,blockwidth+layerynow+ynum+((i)*(bigpartsholder[1])*blockwidth),blockwidth*10,blockwidth*bigpartsholder[0]);
+		ctxfore.fill();
+		ctxfore.lineWidth = 1;
+		ctxfore.strokeStyle ="#000000";
+		ctxfore.stroke();
+		ctxfore2.fillStyle= swatch[(bigpartsholder[2])-1];
+		if (bigpartsholder[2]!=0){
+			ctxfore2.rect(playblock.x,blockwidth+layerynow+ynum+((i)*(bigpartsholder[1])*blockwidth)+(bigpartsholder[0]*blockwidth),blockwidth*bigpartsholder[2],blockwidth);
+			ctxfore2.fill();
+			ctxfore2.lineWidth = 1;
+			ctxfore2.strokeStyle ="#000000";
+			ctxfore2.stroke();
+		}
+	}
+	multbyflash(i);
+	setTimeout(bigunpause,2000);
+}
+
+function domult(i,xnum,ynum){
+	paused = true;
+	ctxfore.beginPath();
+	ctxfore.fillStyle= swatch[(playblock.total)-1];
+	if (max == lastmax){
+		ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+	}
+
+	if (hover == false){
+		ctxfore.rect((playblock.x)+((partsholder[i][1])*(blockwidth))-blockwidth ,ynum+(playblock.y)+blockwidth+((partsholder[i][0])*blockwidth) ,partsholder[i][2]*blockwidth,blockwidth);
+		ctxfore.fill();
+		ctxfore.lineWidth = 1;
+		ctxfore.strokeStyle ="#000000";
+		ctxfore.stroke();
+		if(i == max){
+			lastmax = max;
+			ctxfms.beginPath();
+			ctxfms.fillStyle= "#333333";
+			
+			var xnow = (playblock.x)/(10*blockwidth);
+			var layerynow = layers[xnow].y;
+			
+			if (max == lastmax){
+				ctxfms.rect((playblock.x)+((partsholder[max][1])*(blockwidth))-blockwidth,ynum+(playblock.y)+blockwidth+((partsholder[max][0])*blockwidth),partsholder[max][2]*blockwidth,blockwidth);
+				ctxfms.fill();
+				ctxfms.rect((playblock.x),layerynow,playblock.total*blockwidth,blockwidth);
+				ctxfms.fill();
+			}			
+		}
+		max++;
+		
+		//complete part or fragment?
+			var fullpart = false;
+			if (partsholder[i][2] == playblock.total){
+				fullpart = true;
+				i-= bad;
+				multbyflash(i);
+			}
+			else if (partsholder[i][2] != playblock.total && i<(partsholder.length)){
+				if((partsholder[i][2] + partsholder[i+1][2]) == playblock.total){
+					i-= bad;
+					multbyflash(i);
+				}
+				else{
+					fullpart = true;
+					bad++;
+				}
+			}
+			else{
+			}
+		//END complete part or fragment?
+		
+		if(fullpart == true){
+			setTimeout(unpause,2000);
+		}
+		else{
+			globali++;
+			i++;
+			paused = false;
+			if (globali == partsholder.length){
+				ctxfm.clearRect(0, 0, WIDTH, HEIGHT);
+				ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+			}
+			if (flashes == xnum){
+				setTimeout(calcdone,3000);
+			}
+		}
+	}
+}
+//END calculation functions
+
+
+//Update functions
+function bigunpause (){
+	globali++;
+	paused = false;
+	var xnum = ((playblock.x)/(blockwidth*10))+1;
+	if (globali == xnum){
+		ctxfm.clearRect(0, 0, WIDTH, HEIGHT);
+		ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+		bigcalcdone();		
+	}
+}
+
+function unpause (){
+	globali++;
+	paused = false;
+	if (globali == partsholder.length){
+		ctxfm.clearRect(0, 0, WIDTH, HEIGHT);
+		ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+		calcdone();		
+	}
+}
+
+
+function multbyflash(i){
+	ctxfm.clearRect(0, 0, WIDTH, HEIGHT);
+	flashes++;
+	setTimeout(dull,1500);
+	ctxfm.beginPath();
+	ctxfm.fillStyle= "#333333";
+	if (reordered == false){
+		var offs = playblock.rows - 1;
+	}
+	else{
+		var offs = playblock.bigrows - 1;
+	}
+	ctxfm.rect(playblock.x ,playblock.y+(blockwidth*(i+1))+(offs*blockwidth),blockwidth*10,blockwidth);
+	ctxfm.fill();
+	ctxfm.lineWidth = 1;
+	ctxfm.strokeStyle ="#000000";
+	ctxfm.stroke();
+}
+
+
+function dull(){
+	ctxfm.clearRect(0, 0, WIDTH, HEIGHT);	
+	ctxfms.clearRect(0, 0, WIDTH, HEIGHT);
+}
+
+
+function bigcalcdone(){
+	ctxfore.clearRect(0, 0, WIDTH, HEIGHT);
+	ctxfore2.clearRect(0, 0, WIDTH, HEIGHT);
+	fresh = false;
+	calculating = false;
+	layerhit = false;
+	partsmade = false;
+	var xnum = ((playblock.x)/(blockwidth*10))+1;
+	var ynum = (xnum+1)*blockwidth;
+	var r = playblock.total*xnum;
+	tarb.greyout(r);
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	playblock.y = (layerynow + ynum);
+	
+	//Move layer up
+	layers[xnum-1].y -= blockwidth*(reps+1);
+	if (layers[xnum-1].y < blockwidth*4){
+		layers[xnum-1].y = blockwidth*3
+	}
+	//
+	
+	ctxfore.clearRect(0, 0, 1250, 600);
+	
+	//Modify playblock
+	var numin = playblock.total;
+	if (reordered == true){  //playblock is >10 and when last multiplied was >10
+		playblock.newrowreorder(numin,xnum);
+	}
+	if (reordered == false){  //playblock is >10 but when last multiplied was <10
+		playblock.rowreorder(numin,xnum);
+	}
+	//End modify playblock
+	
+	paused = false;
+	globali = 0;
+	hover = true;
+	bigpartsholder = [];
+	bigrepartsholder = [];
+	
+	//numerals
+	var multxt = playblock.total;
+	ctxfore.beginPath();
+	ctxfore.font = "30px Arial";
+	ctxfore.textAlign = "center";
+	ctxfore.fillStyle = "#000000";
+	ctxfore.fillText(multxt,(playblock.x)+(blockwidth*5),(playblock.y)-blockwidth/2,50,0);
+	//END numerals
+
+}
+
+
+
+function calcdone(){
+	ctxfore.clearRect(0, 0, WIDTH, HEIGHT);
+	ctxfore2.clearRect(0, 0, WIDTH, HEIGHT);
+	bad = 0;
+	calculating = false;
+	layerhit = false;
+	partsmade = false;
+	var xnum = ((playblock.x)/(blockwidth*10))+1;
+	var ynum = (xnum+1)*blockwidth;
+	var r = playblock.total*xnum;
+	tarb.greyout(r);
+	
+	var xnow = (playblock.x)/(10*blockwidth);
+	var layerynow = layers[xnow].y;
+	playblock.y = (layerynow + ynum);
+	
+	//Modify playblock
+	playblock.rescale(xnum);
+	//End modify playblock
+	
+	//Move layer up
+	layers[xnum-1].y -= blockwidth*(reps+1);
+	if (layers[xnum-1].y < blockwidth*4){
+		layers[xnum-1].y = blockwidth*3
+	}
+	//
+	ctxfore.clearRect(0, 0, 1250, 600);
+	paused = false;
+	globali = 0;
+	hover = true;
+	var x = 0;
+	while (x<partsholder.length){
+		delete partsholder[x][0];
+		delete partsholder[x][1];
+		delete partsholder[x][2];
+		x++;
+	}
+	partsholder = [];
+	flashes = 0;
+	max = 0;
+	lastmax = 0;
+	
+	//numerals
+	var multxt = playblock.total;
+	ctxfore.beginPath();
+	ctxfore.font = "30px Arial";
+	ctxfore.textAlign = "center";
+	ctxfore.fillStyle = "#000000";
+	ctxfore.fillText(multxt,(playblock.x)+(blockwidth*5),(playblock.y)-blockwidth/2,50,0);
+	//END numerals
+	
+	
+}
+
+function reset (){
+	reps++;
+	if (ended == false){
+		playblock.total = newprod;
+	}
+	else{
+		playblock.total = 1;
+		persistentin = 1;
+		persistentmult = 2;
+	}
+	playblock.rows = playblock.rowsnow();
+	reordered = false;
+	playblock.height = playblock.heightnow();
+	tarb.greyout(newprod);
+	playblock.bigrows = 0;
+	playblock.decrows = Math.floor(playblock.total/10);
+	playblock.unirows = playblock.rows - playblock.decrows;
+	playblock.unilen = playblock.total - (playblock.decrows*10);
+	playblock.multnum = 0;
+	playblock.lastmult = 0;
+	playblock.y = 0;
+	bigrepartsholder[0] = 0;
+	flashes = 0;
+	busted = false;
+	looping = false;
+}
+//END update functions
+
+
+
+
+
+
+
+
+
+
+function start(){	
+	//make layers
+	var i = 0;
+	while (i<10){
+		inow = i;
+		xnow = i*blockwidth*10;
+		ynow = layery;
+		rowsnow = i+1;
+		layers[i] = new layer(inow,xnow,ynow,rowsnow);
+		i++;
+	}
+	//end make layers
+	
+	//make totalblock
+	var total = glotot;
+	var totx = 0;
+	var toty = 0;
+	var totrows = 0;
+	var totheight = 0; 	
+	playblock = new totalblock(total,totx,toty,totrows,totheight); 
+	//end make totalblock
+	
+	//make targetblock
+	tarb = new targetblock(target);
+	//end make targetblock
+	
+	started = true;
+}
+
+
+start();
+setInterval(init,10);
+
+</script>
+<script type="text/javascript" src="diffspare.js"></script>
+</body>
+</html>
+

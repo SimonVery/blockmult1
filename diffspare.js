@@ -22,13 +22,10 @@ storediff();
 function storediff (){
 	dotheperms(mult);
 	diffscores[mult-2] = meandiff;
-	//alert(mult + "  "+ meandiff);
 	mult++;
 	paths = [];
 	permutations = [];
 	duperms = [];
-	//decremarray = [];
-	//diffarr [];
 	checknum = 0;
 	permnum = 0;
 	inarr = 0;
@@ -43,9 +40,6 @@ function storediff (){
 		if (diffscores[d] != 0.0){
 			contdiffscores[0][e] = d+2;
 			contdiffscores[1][e] = diffscores[d];
-			
-			//alert(contdiffscores[0][d]);
-			//alert(contdiffscores[1][d]);
 			d++;
 			e++;
 		}
@@ -56,8 +50,6 @@ function storediff (){
 	goodtogo = true;
 }
 
-//alert(contdiffscores[0] + "     "+contdiffscores[1]);//+ "     "+contdiffscores[2]);
-//alert(contdiffscores[0].length + "     "+contdiffscores[1].length+ "     "+contdiffscores[2].length);
 
 function chunk (n){
 	var chunkness = 0;
@@ -113,35 +105,20 @@ function dothediffs (){
 		l++;
 	}
 	meandiff = meandiff/l;
-	meandiff = parseFloat(meandiff).toFixed(1);
-	//var tmpmeandiff = meandiff;
-	//var targdiff = mult/20;
-	//var seediff = glotot.toString();
-	//seediff = chunk(seediff);
-	//meandiff = (tmpmeandiff+targdiff+seediff)/3;	
-	//allperms[mult] = new Array();
-	//allperms[mult] = duperms;
-	//duperms = [];
-	//permutations = [];
-	//paths = [];
-	//alert("diff "+ meandiff+ "   "+diffarr);	
+	meandiff = parseFloat(meandiff).toFixed(1);	
 }
 
 function dotheperms(target){
 	mult = target;
 	get_primefactors(mult);
-	//alert("M "+mult+ "   inarr "+ inarr +"     pl "+paths.length);
-	//alert(" diffpa " +(inarr - paths.length));
 	while (inarr < paths.length){
 		if (inarr == (paths.length)-1){
-			//alert(paths[inarr][0]);
 			if (paths[inarr][0].length != null && paths[inarr][0].length != 0){
 				contdiffscores[2].push(paths[inarr][0].length);
 			}
 		}
 		
 		var inputArray = paths[inarr][0];
-		//alert("ia "+ inputArray);
 		var inputArrayString = inputArray.toString();
 		decremarray[inarr] = new Array();
 		var c = 0;
@@ -159,24 +136,19 @@ function dotheperms(target){
 			}
 			c++;
 		}
-		permutator();//inputArray);
+		permutator();
 		inarr++;
 	}
-	//alert("EARLY "+duperms);
 	dothediffs();
-	//alert("DUP "+duperms + "     n= "+duperms.length);
 }
 
-//alert(permutations+"  DUP "+duperms);
-//alert("DUP "+duperms + "     n= "+duperms.length);
 var t = 0;
 while (t < allperms.length){
-	//alert("ALL "+t +" "+allperms[t]);
 	t++;
 }
 
 
-function permutator(){//inputArray) {
+function permutator(){
 	var result = decremarray[inarr].reduce(function permute(res, item, key, arr) {
 		return res.concat(arr.length > 1 && arr.slice(0, key).concat(arr.slice(key + 1)).reduce(permute, []).map(function(perm) { return [item].concat(perm); }) || item);
 	}, []);
@@ -245,17 +217,14 @@ function permutator(){//inputArray) {
 	}
 	var l1 = permutations[lo].length;
 	var lnew = permutations[lo].substr(l1-1,1);
-	//alert("DOOP "+duperms);
 	if (lnew == "1"){
 		permutations[lo] = permutations[lo]+"0";
 	}
 	duperms.push(permutations[lo]);
-	//alert("a "+permutations[lo]);
 	
 	if (hi-lo == 1){
 		if (permutations[hi] != permutations[hi-1]){
 			duperms.push(permutations[hi]);
-			//alert("b "+permutations[hi]);
 		}
 	}
 	else{
@@ -274,7 +243,6 @@ function permutator(){//inputArray) {
 			}
 			if (isdup == false){
 				duperms.push(permutations[mindex]);
-				//alert("c "+permutations[mindex]);
 			}
 		mindex++;
 		}
@@ -315,7 +283,6 @@ function get_primefactors (mult) {
 	var item = primefactors[0];
 		if ((item == 2) || (item == 3) || (item == 5) || (item == 7))  {
 			donot = true;
-			//alert(primefactors);
 		}
 	}
 	if (donot == false){

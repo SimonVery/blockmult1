@@ -1,0 +1,782 @@
+<html>
+<head>   
+<meta charset="UTF-8" />
+<title>Clusters</title>
+<style>
+#canvas{
+	border: solid 1px #000;	
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas" width="2000" height="1000" style="position:absolute;top:0%;left:0px; z-index=1">
+</canvas>
+<canvas id="dragcanvas" width="2000" height="1000" style="position:absolute;top:0%;left:0px; z-index=2">
+</canvas>
+
+<p id="messages1" style="float: right"></p>
+<p id="messages2" style="float: right"></p>
+<p id="messages3" style="float: right"></p>
+<p id="messages4" style="float: right"></p>
+<script>
+var canvas = document.getElementById("canvas");
+var	ctx = canvas.getContext("2d");
+var gridready = 0;
+var debug;
+
+
+//Object descriptors
+function grid (){
+	this.squares = new Array();
+	this.squares[0] = new Array();
+	this.squares[1] = new Array();
+	this.squares[2] = new Array();
+	this.squares[3] = new Array();
+	this.squares[4] = new Array();
+	this.squares[5] = new Array();
+	swatch =  new Array ("#FFFFFF","#06EE0C","#DCDC00","#288AA3","#FF57EA","#FA0000","#6BCC66","#AA00FF","#0CE6E8","#E8721D");
+	this.occupied_squares = 0;
+	this.mapped_squares = 0;
+	this.occlist = new Array();
+	var occbias = (this.occupied_squares/16)/2;
+	
+	this.reset_map = function (){
+		this.mapped_squares = 0;
+		this.occupied_squares--;
+	};
+	
+	this.redraw_map = function (){
+		this.mapped_squares = 0;
+		this.occupied_squares++;
+	};
+	
+	this.set_squares = function () {
+		//randomly set occupied state for inner 4x4 squares and set border squares to unoccupied 
+		
+		//random values
+		var setcount = 0;
+		var occset = 0;
+		var occsetvals = new Array();
+		var fulls = 0;
+		while (setcount < 16){
+			occset = Math.round(Math.random()+occbias);
+			if (occset == 1){
+				fulls++;
+			}
+			if (fulls < 11){
+				occsetvals[setcount] = occset;
+			}
+			else{
+				occsetvals[setcount] = 0;
+			}
+			setcount++;
+			
+		}
+		
+		//create 36 SQUARES
+		//assign the random values to the appropriate squares and zeros to the rest
+		setcount = 0;
+		var start_square = "";
+		var squarenow = "";
+		var rowcount = 0;
+		var colcount = 0;
+		var rcstr = "";
+		var ccstr = "";
+		var loc = "";
+		var occ = 0;
+		var x = 0;
+		var y = 0;
+		var firstsquarefound = false;
+		var firstfullsquare = "";
+		while (rowcount < 6){
+			while (colcount < 6){
+				y = 100*rowcount;
+				x = 100*colcount;
+				rcstr = rowcount.toString();
+				ccstr = colcount.toString();
+				squarenow = "square"+rcstr+ccstr;
+				loc = (rcstr+ccstr).toString();
+				if (rowcount == 0 || rowcount == 5){
+					occ = 0;
+				}
+				else{
+					if (colcount == 0 || colcount == 5){
+						occ = 0;
+					}
+					else{
+						occ = occsetvals[setcount];
+						if (occ == 1){
+							this.occlist.push(parseInt(loc));
+							this.occupied_squares++;
+						}
+						setcount++;
+					}
+				}
+				squarenow = new square(loc,occ,x,y);
+				this.squares[rowcount].push(squarenow);
+				if (squarenow.occupied == 1 && firstsquarefound == false){
+					firstsquarefound = true;
+					firstfullsquare = (rowcount.toString()).concat(colcount.toString());
+					start_square = firstfullsquare;
+				}
+				var fill = "#FFEF8C";
+				squarenow.draw_square(fill);
+				colcount++;
+				if (colcount == 6){
+					rowcount++;
+					if (rowcount < 6){
+						colcount = 0;
+					}
+				}
+			}
+		}
+		//set path
+		setpath = new path(start_square);
+		setpath;
+		setpath.start_path();
+    };
+}
+
+
+function square (loc,occ,x,y){
+	this.location = loc;
+	this.occupied = occ;
+	this.colour = "#000000";
+	this.x = x;
+	this.y = y;
+	
+	this.draw_square = function (fill) {
+		var r = loc.substr(0,1);
+		var c = loc.substr(1,1);
+		if (r != 0 && r !=5 && c != 0 && c!= 5){
+			ctx.beginPath();
+			ctx.fillStyle = fill;
+			ctx.rect(this.x,this.y,100,100);
+			ctx.fill();
+			if (fill == "#FFEF8C"){
+				ctx.lineWidth = 1;
+				ctx.strokeStyle = "#AAAAAA";
+			}
+			else{
+				ctx.lineWidth = 5;
+				ctx.strokeStyle = "#000000";
+			}
+			ctx.stroke();		
+		}
+    };
+	
+}
+
+function path (start_square){
+	this.start_square = start_square;
+	var this_square = "";
+	var splits = new Array();
+	//splits items are strings with the format "nn" (the location of the square with the split) + "RDLU"
+	//Each letter indicates that the split includes existence of a valid (occupied, not already in cluster) square in the indicated direction 
+	var clusterset = new Array();
+	var currentcluster = "";
+	
+	colour_cluster = function (clow) {
+		//set squares in cluster to same colour
+		var cluslen = clow.length/2;
+		var fill = swatch[cluslen-1];
+		var sq = 0;
+		var r = "";
+		var c = "";
+		while (sq < clow.length){
+			r = parseInt(clow.substr(sq,1));
+			c = parseInt(clow.substr(sq+1,1));
+			setgrid.squares[r][c].draw_square(fill);
+			sq+=2;
+		}
+    };
+	
+	
+	parse_square = function (r,c) { //give function a square's location value and it returns a reference to the square object with that location value
+		var squareobj = setgrid.squares[parseInt(r)][parseInt(c)];
+		return squareobj;
+	}
+	
+	check_neighbours = function (square) {		
+		//check states of neighbouring squares
+		var rgood = true;
+		var lgood = true;
+		var ugood = true;
+		var dgood = true;
+		var rc = square;
+		var ro = rc.substr(0,1);
+		var co = rc.substr(1,1);
+		
+		
+		//add this_square to new cluster's squares ONLY IF IT ISN'T ALREADY INCLUDED
+		var clustersquarecheck = currentcluster;		
+		var csc = 0;
+		var revisit = false;
+		while (csc < clustersquarecheck.length){
+			if (((parse_square(ro,co).location).toString()) == clustersquarecheck.substr(csc,2)){
+				revisit = true;
+			}
+			csc+=2;
+		}
+		if (revisit == false){
+			currentcluster = currentcluster.concat(square);
+			clusterset[(clusterset.length-1)] = currentcluster;
+			//increment mapped_squares
+			if (setgrid.mapped_squares < setgrid.occupied_squares){
+				setgrid.mapped_squares++;
+			}
+		}
+		
+		//check states of neighbouring squares
+		var l = (parseInt(co)-1).toString();
+		var r = (parseInt(co)+1).toString();
+		var u = (parseInt(ro)-1).toString();
+		var d = (parseInt(ro)+1).toString();
+		var locc = parse_square(ro,l).occupied;
+		var rocc = parse_square(ro,r).occupied;
+		var uocc = parse_square(u,co).occupied;
+		var docc = parse_square(d,co).occupied;
+		if (locc == 0){
+			lgood = false;
+		}
+		if (rocc == 0){
+			rgood = false;
+		}
+		if (uocc == 0){
+			ugood = false;
+		}
+		if (docc == 0){
+			dgood = false;
+		}
+		
+		//get clusterlist status of neighbours of this_square
+		
+		//THIS NEEDS TO BE DONE FOR EACH CLUSTER
+		var ca = 0;
+		while (ca < clusterset.length){
+			var currentclusterchecked = clusterset[ca];
+			var clustersquares = currentclusterchecked;  
+			var cc = 0;
+			while (cc < clustersquares.length){
+				if (((parse_square(ro,l).location).toString()) == clustersquares.substr(cc,2)){
+					lgood = false;
+				}
+				if (((parse_square(ro,r).location).toString()) == clustersquares.substr(cc,2)){
+					rgood = false;
+				}
+				if (((parse_square(u,co).location).toString()) == clustersquares.substr(cc,2)){
+					ugood = false;
+				}
+				if (((parse_square(d,co).location).toString()) == clustersquares.substr(cc,2)){
+					dgood = false;
+				}
+				cc+=2;
+			}
+			ca++;
+		}
+		
+		var goodneighbours = 4;
+		if (lgood == false){
+			goodneighbours--;
+		}
+		if (rgood == false){
+			goodneighbours--;
+		}
+		if (ugood == false){
+			goodneighbours--;
+		}
+		if (dgood == false){
+			goodneighbours--;
+		}
+		
+		//check how many active neighbours this_square has 
+		//call check_neighbours, splitpath or newpath
+		
+		
+		if (goodneighbours > 3){
+			alert("NEIGHBOURS ERROR!!!");
+		}
+		
+		if (goodneighbours == 0){
+			if (splits.length == 0){
+				newpath();
+			}
+			else{
+				//revert to last split
+				var splitnow = splits[splits.length-1].substr(0,2);
+				//remove last split from splits
+				splits.pop();
+				check_neighbours(splitnow);
+			}
+		}
+		
+		var square = "";
+		
+		if (goodneighbours == 1){
+			var next_square = "";
+			var num;
+			var str;
+			if (lgood == true){
+				num = parseInt(co)-1;
+				str = num.toString();
+				next_square = ro.concat(str); 
+			}
+			if (rgood == true){
+				num = parseInt(co)+1;
+				str = num.toString();
+				next_square = ro.concat(str); 
+			}
+			if (ugood == true){
+				num = parseInt(ro)-1;
+				str = num.toString();
+				next_square = str.concat(co); 
+			}
+			if (dgood == true){
+				num = parseInt(ro)+1;
+				str = num.toString();
+				next_square = str.concat(co); 
+			}
+			square = next_square;
+			check_neighbours(square);
+		}
+		
+		if (goodneighbours > 1){
+			var splitstring = "";
+			if (rgood == true){
+				splitstring = splitstring.concat("R");	
+			}
+			if (dgood == true){
+				splitstring = splitstring.concat("D");
+			}
+			if (lgood == true){
+				splitstring = splitstring.concat("L");
+			}
+			if (ugood == true){
+				splitstring = splitstring.concat("U");
+			}
+			//move to square that is in direction of first occurring letter in splitstring
+			var nextstep = splitstring.substr(0,1);
+			//remove the direction settled from splitstring (the direction cannot be repeated)
+			var max = splitstring.length;
+			var adds = splitstring.substr(1,max);
+			var splitstore = rc.concat(adds);
+			splits.push(splitstore);
+			if (nextstep == "R"){
+				square = (ro.concat(r));
+			}
+			if (nextstep == "D"){
+				square = (d.concat(co))
+			}
+			if (nextstep == "L"){
+				square = (ro.concat(l));
+			}
+			if (nextstep == "U"){
+				square = (u.concat(co))
+			}
+			check_neighbours(square);
+		}
+    };
+
+	
+	newpath = function () {
+		//start path of new cluster
+		if (setgrid.mapped_squares >= setgrid.occupied_squares){ //all squares in all paths now mapped
+			//document.getElementById('messages4').innerHTML = "BEFORE ALL DONE ";
+			var cluscolor = 0;
+			while (cluscolor<clusterset.length){
+				var clow = clusterset[cluscolor];
+				colour_cluster(clow);
+				cluscolor++;
+			}
+			//document.getElementById('messages4').innerHTML = "clu "+clusterset;
+			clusterset = [];
+			splits = [];
+			currentcluster = "";
+			gridready = 1;
+			//document.getElementById('messages4').innerHTML = "AFTER ALL DONE ";
+		}
+		else{
+			//iterate through the 16 potentially occupied squares and check each to see if it is in a cluster
+			//first square found that is not in any cluster is used as a new start_square
+		
+			var alldex = 0;
+			var cl = 0;
+			var clustersquares;
+			var squareslen = 0;
+			var squaresdex = 0;
+			var clustem = "";
+			var newsquarefound = false;
+			var newstart = "";
+			var allclustersquares = new Array();
+			//add all clusterset items into a single array
+			while (alldex < setgrid.occlist.length){
+				while (cl < clusterset.length){
+					clustersquares = clusterset[cl];
+					squaresdex = 0;
+					squareslen = clustersquares.length;
+					while (squaresdex < squareslen){
+						clustem = clustersquares.substr(squaresdex,2);
+						allclustersquares.push(clustem);
+						squaresdex+=2;
+					}
+					cl++;
+				}
+				alldex++;
+			}
+			
+			//select the first item in occlist that is not an item in allclustersquares
+			var newget = 0;
+			var mac = 0;
+			while (newget < setgrid.occlist.length){//check each item in occlist
+				while (mac < allclustersquares.length){//check the occlist item against each allclustersquares
+					if (setgrid.occlist[newget] != allclustersquares[mac]){//items don't match, try next allclustersquares item
+						mac++;
+					}
+					else{//items match. This item in occlist is in allclustersquares, try next occlist item
+						mac = 0;
+						newget++;
+					}
+					if (mac == allclustersquares.length){//the occlist item isn't in any clusters. Select item and stop search
+						newstart = setgrid.occlist[newget];
+						mac = allclustersquares.length;
+						newget = setgrid.occlist.length;	
+					}
+				}
+				newget++;
+			}	
+		}
+		//call check_neighbours with new start_square
+		if (setgrid.mapped_squares < setgrid.occupied_squares){ 
+			//create a new blank clusterset item  
+			currentcluster = "";
+			clusterset.push(currentcluster);
+			square = newstart.toString();
+			check_neighbours(square);
+		}
+    };		
+	
+	
+	this.start_path = function () {
+		gridready = 0;
+		//document.getElementById('messages1').innerHTML = "AFTER ";
+		this.this_square = this.start_square;
+		//document.getElementById('messages1').innerHTML = "START "+this.this_square;
+		var square = this.this_square;
+		var makecluster = "";
+		clusterset.push(makecluster);
+		
+		//check surrounding squares
+		check_neighbours(square);
+    };
+	
+}
+//END Object descriptors
+
+
+//INITIALISER
+
+setgrid = new grid();
+setgrid;
+setgrid.set_squares();
+
+
+
+//Interactivity
+var x = 0;
+var y = 0;
+var snapx = 0;
+var snapy = 0;
+var dragok = false;
+var squarehere = false;
+var lastx = 0;
+var lasty = 0;
+var snapbackocc;
+var snapbacksquare;
+var dragcanvas = document.getElementById("dragcanvas");
+var	dragctx = dragcanvas.getContext("2d");
+dragcanvas.onmousedown = dragordrop; 
+var outofbounds = false;
+var lastgoodx = 0;
+var lastgoody = 0;
+var free = true;
+
+function myMove(e){
+	lastgoodx = x;
+	lastgoody = y;
+	boundscheck(e);
+	if (outofbounds == true){
+		x = lastgoodx;
+		y = lastgoody;
+	}
+	if (dragok & e.pageX < 450 && e.pageX > 150 && e.pageY < 450 && e.pageY > 150){
+		x = e.pageX - dragcanvas.offsetLeft -50;
+		y = e.pageY - dragcanvas.offsetLeft -50;
+		//document.getElementById('messages1').innerHTML = "X "+x;
+		///document.getElementById('messages2').innerHTML = "Y "+y;
+	}
+	else if (dragok & e.pageX < 500 && e.pageX > 100 && e.pageY < 450 && e.pageY > 150){
+		y = e.pageY - dragcanvas.offsetLeft -50;
+		//document.getElementById('messages1').innerHTML = "X "+x;
+		//document.getElementById('messages2').innerHTML = "Y "+y;
+	}
+	else if (dragok & e.pageX < 450 && e.pageX > 150 && e.pageY < 500 && e.pageY > 100){
+		x = e.pageX - dragcanvas.offsetLeft -50;
+		//document.getElementById('messages1').innerHTML = "X "+x;
+		//document.getElementById('messages2').innerHTML = "Y "+y;
+	}
+}
+
+function boundscheck(e){
+	if (e.pageX < 100 || e.pageX > 500 || e.pageY < 100 || e.pageY > 500){
+		outofbounds = true;	
+	}
+	else{
+		outofbounds = false;
+	}
+}
+
+function occtest(e){
+//check if over an occupied square
+	x = e.pageX;// - dragcanvas.offsetLeft;
+	y = e.pageY;// - dragcanvas.offsetTop;
+	var tmpsnapx = Math.floor(x/100)*100;
+	var tmpsnapy = Math.floor(y/100)*100;
+	lastx = tmpsnapx;
+	lasty = tmpsnapy;
+	var row = (tmpsnapy/100);
+	var col = (tmpsnapx/100);
+	var occheck = setgrid.squares[row][col].occupied;
+	if (occheck == 1){
+		squarehere = true;
+	}
+	else{
+		squarehere = false;
+	}
+}
+
+
+function fillblanks(){
+	ctx.clearRect(0,0,600,600);
+	//redraw unoccupied squares
+	var rerow = 1;
+	var recol = 1;
+	var fill = "#FFEF8C";
+	while (rerow < 4){
+		if (recol == 5){
+			recol = 1;
+			rerow++;
+		}
+		while (recol < 5){
+			if (setgrid.squares[rerow][recol].occupied == 0){
+				setgrid.squares[rerow][recol].draw_square(fill);
+			}
+		recol++;
+		}
+	}	
+}
+
+function freeit(){
+	free = true;
+}
+
+
+
+function dragordrop(e){
+	if (free == true){
+		free = false;
+		setTimeout (freeit, 100);
+		if (gridready == 1){
+			boundscheck(e);
+			if (outofbounds == false){
+				if (dragok == false){//DO DRAG
+					//DRAGGING
+					occtest(e);
+					if (squarehere == true){
+						gridready = 0;
+						snapbackocc = setgrid.occlist;
+						if (e.pageX < 450 && e.pageX > 150 && e.pageY < 450 && e.pageY > 150){
+							x = e.pageX - dragcanvas.offsetLeft -50;
+							y = e.pageY - dragcanvas.offsetTop -50;
+						}
+						if (e.pageX < 500 && e.pageX >= 450){
+							x = 400;
+						}
+						if (e.pageX >= 100 && e.pageX <= 150){
+							x = 100;
+						}
+						if (e.pageY <= 500 && e.pageY >= 450){
+							y = 400;
+						}
+						if (e.pageY <= 150 && e.pageY >= 100){
+							y = 100;
+						}	
+					
+						//redraw clusters with dragged item removed
+						setgrid.reset_map();
+						//set the current square from setgrid.squares to unoccupied and remove it from occlist
+						var col = (lastx/100);
+						var row = (lasty/100);
+						var removedsquare = setgrid.squares[row][col];
+						snapbacksquare = removedsquare;
+						var removedint = parseInt(setgrid.squares[row][col].location);
+						//split occlist into before and after removedint and join the parts together
+						var rl = setgrid.occlist.length;
+						var r = 0;
+						var front;
+						var back;
+						var all;
+					//document.getElementById('messages2').innerHTML = "removedint "+removedint;
+					//document.getElementById('messages1').innerHTML = "occlist "+setgrid.occlist;
+						while (r < rl){ 
+							if (setgrid.occlist[r] == removedint){
+								removedsquare.occupied = 0;
+								front = setgrid.occlist.slice(0,r);
+								back = setgrid.occlist.slice(r+1,rl);
+								r = rl;
+								all = front.concat(back);
+								setgrid.occlist = [];
+								setgrid.occlist = all;
+							//document.getElementById('messages1').innerHTML = "TESTDRAG "+(typeof(all))+": "+all;
+								var newstartsquare = setgrid.occlist[0].toString();
+								setpath.start_square = newstartsquare;
+								fillblanks();
+								setpath.start_path();
+							}
+						r++;
+						}
+						dragctx.clearRect(0,0,600,600);
+						dragok = true;
+						dragcanvas.onmousemove = myMove;
+					}
+				}
+				else{//DO DROP
+					//DROPPING
+					dragok = false;
+					dragcanvas.onmousemove = null;
+					var newstartsquare;
+					occtest(e);
+					if (squarehere == false){
+						//snap to grid
+						snapx = Math.floor(x/100)*100;
+						snapy = Math.floor(y/100)*100;
+						x = snapx;
+						y = snapy;
+			//document.getElementById('messages1').innerHTML = "X "+x;
+			//document.getElementById('messages2').innerHTML = "Y "+y;
+			//dragcanvas.onmousemove = null;
+		
+						//update the list of occupied squares with the new position added
+						var dropped_at = (snapy/100).toString().concat((snapx/100).toString());
+						//insert dropped_at into occlist at numerically ordered index
+						var droppedint = parseInt(dropped_at);
+						var r = 0;
+						var rl = setgrid.occlist.length;
+						var occval;
+						var insdex = 0;
+						var front = "";
+						var back = "";
+						var all = "";
+						while (r < rl){
+							occval = parseInt(setgrid.occlist[r]);
+							if (occval > droppedint){//insert at this index
+								insdex = r;
+								r = rl;
+							}
+							r++;
+							if (r == rl && (droppedint > occval)){
+								insdex = rl;
+							}
+						}
+						if (insdex == 0){
+							dropped_at = dropped_at.concat(",");
+							all = dropped_at.concat(setgrid.occlist);
+							var array = all.split(',');
+							all = array;
+				//document.getElementById('messages2').innerHTML = "TESTBAD "+(typeof(all))+": "+all;
+						}
+						else if (insdex < rl){
+							front = setgrid.occlist.slice(0,insdex);
+							back = setgrid.occlist.slice(insdex,rl);
+							front = front.concat(dropped_at);
+							all = front.concat(back);
+					//document.getElementById('messages2').innerHTML = "TESTGOOD1 "+(typeof(all))+": "+all;
+						}
+						else{
+							all = setgrid.occlist.concat(dropped_at);
+					//document.getElementById('messages2').innerHTML = "TESTGOOD2 "+(typeof(all))+": "+all;
+						}
+						setgrid.occlist = [];
+						setgrid.occlist = all;
+						setgrid.redraw_map();
+						//set dropped square to occupied
+						setgrid.squares[snapy/100][snapx/100].occupied = 1;
+						//determine if new position of dropped square changes the cluster colours
+						newstartsquare = setgrid.occlist[0].toString();
+						setpath.start_square = newstartsquare;
+						fillblanks();	
+						setpath.start_path();
+					}
+					else{
+						//have to redraw squares with the positions that they had before drag started
+						setgrid.redraw_map();
+						setgrid.occlist = snapbackocc;
+						newstartsquare = setgrid.occlist[0].toString();
+						snapbacksquare.occupied = 1;
+						setpath.start_square = newstartsquare;
+						fillblanks();
+						setpath.start_path();
+					}
+				}
+			}
+		}
+	}//FREEIT
+}
+
+
+
+
+setInterval(draw, 25);
+
+function draw(){
+	if (gridready == 1){
+		if (dragok == true){
+			if (outofbounds == false){
+				dragctx.clearRect(0,0,600,600);
+				dragctx.beginPath();
+				dragctx.fillStyle = "#FFFFFF";
+				dragctx.fillRect(x,y,100,100);
+				dragctx.strokeRect(x,y,100,100);
+				dragctx.lineWidth = 5;
+				dragctx.strokeStyle = "#000000";
+				dragctx.stroke();	
+			}
+			else{
+				dragctx.clearRect(0,0,600,600);
+				dragctx.beginPath();
+				dragctx.fillStyle = "#FFFFFF";
+				dragctx.fillRect(lastgoodx,lastgoody,100,100);
+				dragctx.strokeRect(lastgoodx,lastgoody,100,100);
+				dragctx.lineWidth = 5;
+				dragctx.strokeStyle = "#000000";
+				dragctx.stroke();
+			}
+		}
+		else{
+			dragctx.clearRect(0,0,600,600);
+		}
+	}
+	var col = (lastx/100);
+	var row = (lasty/100);
+	document.getElementById('messages3').innerHTML = "XY "+row+" , "+col+" |";
+	//document.getElementById('messages1').innerHTML = "MAP "+setgrid.mapped_squares;
+	//document.getElementById('messages2').innerHTML = "OCC "+setgrid.occupied_squares;
+	//document.getElementById('messages1').innerHTML = "X "+x;
+	//document.getElementById('messages2').innerHTML = "Y "+y;
+}
+
+
+</script>
+
+</body>
+</html>
